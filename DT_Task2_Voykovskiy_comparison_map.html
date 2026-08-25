@@ -1,0 +1,870 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Войковский район — сравнение WGS84 / МСК-77 на Яндекс Картах</title>
+<style>
+  :root{
+    /* ---- цвета ---- */
+    --bg:#0f1720; --panel:#16212c; --panel2:#1c2b38; --panel3:#22344323;
+    --border:#2a3b4a;        /* декоративные разделители — не несут смысловой нагрузки */
+    --border-strong:#5d7ea0; /* границы интерактивных элементов — контраст ≥3:1 (WCAG 1.4.11) */
+    --text:#e7eef5; --muted:#a9bccb; --accent:#4da3ff; --accent-strong:#1a5bb8;
+    --wgs:#2f7dff; --msk:#26c281; --mismatch:#ff8a3d; --danger:#ff5566;
+
+    /* ---- типографика: единая шкала ---- */
+    --fs-xs:11px; --fs-sm:12px; --fs-md:13px; --fs-lg:15px; --fs-xl:19px;
+    --lh:1.55;
+
+    /* ---- отступы: шкала кратна 4px ---- */
+    --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:32px;
+
+    /* ---- радиусы ---- */
+    --r-sm:4px; --r-md:8px; --r-lg:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+    font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;font-size:var(--fs-md);line-height:var(--lh);}
+  #app{display:flex;flex-direction:column;height:100vh;}
+
+  a{color:var(--accent);}
+
+  /* ---- фокус: единый видимый индикатор везде (WCAG 2.4.7) ---- */
+  :focus{outline:none;}
+  :focus-visible{outline:2.5px solid var(--accent);outline-offset:2px;border-radius:2px;}
+
+  .skip-link{position:absolute;left:-999px;top:0;background:var(--accent-strong);color:#fff;
+    padding:10px 16px;border-radius:0 0 var(--r-sm) 0;z-index:100;font-size:var(--fs-sm);text-decoration:none;}
+  .skip-link:focus{left:0;}
+
+  header{padding:var(--sp-3) var(--sp-4);background:var(--panel);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;}
+  header h1{font-size:var(--fs-lg);margin:0;font-weight:600;}
+  header .sub{color:var(--muted);font-size:var(--fs-xs);margin-top:2px;}
+  .headerControls{display:flex;gap:var(--sp-2);margin-left:auto;align-items:center;flex-wrap:wrap;}
+
+  /* ---- единый компонент "кнопка" с вариантами ---- */
+  .btn{font-family:inherit;font-size:var(--fs-sm);border-radius:var(--r-sm);cursor:pointer;
+    padding:7px 14px;min-height:34px;border:1px solid var(--border-strong);background:var(--panel2);color:var(--text);
+    display:inline-flex;align-items:center;gap:6px;line-height:1.2;}
+  .btn:hover{border-color:var(--accent);}
+  .btn-primary{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff;}
+  .btn-primary:hover{background:#2467cc;}
+  .btn-ghost{background:transparent;}
+  .btn[aria-pressed="true"], .btn[aria-selected="true"]{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff;}
+  .btn[aria-pressed="true"]:hover, .btn[aria-selected="true"]:hover{background:#2467cc;}
+
+  .tabs{display:flex;gap:4px;background:var(--panel2);padding:3px;border-radius:var(--r-md);border:1px solid var(--border);}
+  .tab-btn{background:transparent;border:none;color:var(--text);padding:6px 14px;border-radius:6px;
+    cursor:pointer;font-size:var(--fs-sm);min-height:30px;font-family:inherit;}
+  .tab-btn[aria-pressed="true"]{background:var(--accent-strong);color:#fff;}
+
+  #main{flex:1;display:flex;min-height:0;}
+  #sidebar{width:308px;flex:none;background:var(--panel);border-right:1px solid var(--border);
+    overflow-y:auto;padding:var(--sp-4);font-size:var(--fs-md);}
+  #sidebar section{margin-bottom:var(--sp-5);}
+  #sidebar h2{font-size:var(--fs-xs);text-transform:uppercase;letter-spacing:.06em;color:var(--muted);
+    margin:0 0 var(--sp-2);font-weight:700;}
+
+  .card{background:var(--panel2);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--sp-3);}
+
+  .legend-row{display:flex;align-items:flex-start;gap:var(--sp-2);margin:var(--sp-2) 0;font-size:var(--fs-sm);}
+  .swatch{width:16px;height:16px;border-radius:3px;flex:none;margin-top:1px;border:1px solid rgba(255,255,255,.25);}
+  .legend-note{margin-top:var(--sp-2);color:var(--muted);font-size:var(--fs-xs);}
+
+  .layer-toggle{display:flex;align-items:center;gap:var(--sp-2);margin:var(--sp-2) 0;min-height:28px;}
+  .layer-toggle input[type=checkbox]{accent-color:var(--accent);width:18px;height:18px;}
+  .layer-toggle label{font-size:var(--fs-sm);}
+  .opacity-row{margin:2px 0 var(--sp-3) 26px;display:flex;align-items:center;gap:var(--sp-2);}
+  .opacity-row input[type=range]{flex:1;accent-color:var(--accent);}
+  .opacity-row .opval{font-size:var(--fs-xs);color:var(--muted);width:34px;text-align:right;flex:none;}
+  .sr-only-label{font-size:var(--fs-xs);color:var(--muted);}
+
+  .site-btn{display:block;width:100%;text-align:left;background:var(--panel2);border:1px solid var(--border);color:var(--text);
+    padding:var(--sp-2) var(--sp-3);border-radius:var(--r-sm);margin:var(--sp-1) 0;cursor:pointer;font-size:var(--fs-sm);
+    font-family:inherit;min-height:44px;}
+  .site-btn:hover{border-color:var(--accent);}
+  .site-btn .meta{display:block;color:var(--muted);font-size:var(--fs-xs);margin-top:2px;}
+  .badge{display:inline-block;background:var(--mismatch);color:#1a1005;font-weight:700;border-radius:4px;
+    padding:1px 7px;font-size:var(--fs-xs);margin-left:6px;}
+
+  .field label{display:block;font-size:var(--fs-sm);margin-bottom:4px;color:var(--text);font-weight:600;}
+  .field input[type=text]{width:100%;padding:9px 10px;border-radius:var(--r-sm);border:1px solid var(--border-strong);
+    background:var(--panel2);color:var(--text);font-size:var(--fs-md);font-family:inherit;}
+
+  .teaser-more{margin-top:var(--sp-2);background:none;border:none;color:var(--accent);cursor:pointer;
+    font-size:var(--fs-sm);padding:4px 0;font-family:inherit;text-decoration:underline;}
+
+  #mapsWrap{flex:1;position:relative;background:#0b131a;}
+  .mapPane{position:absolute;inset:0;}
+  #mapLeft{z-index:1;}
+  #mapRight{z-index:2;}
+  #divider{position:absolute;top:0;bottom:0;width:14px;margin-left:-7px;cursor:ew-resize;z-index:5;
+    display:flex;align-items:center;justify-content:center;background:transparent;border:none;padding:0;}
+  #divider::before{content:'';position:absolute;top:0;bottom:0;left:50%;width:3px;transform:translateX(-50%);
+    background:#fff;box-shadow:0 0 8px rgba(0,0,0,.6);}
+  #divider::after{content:'⇔';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+    background:#fff;color:#111;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;}
+  #divider:focus-visible::before{background:var(--accent);}
+  #divider:focus-visible::after{outline:2.5px solid var(--accent);outline-offset:2px;}
+
+  .paneLabel{position:absolute;top:var(--sp-2);z-index:6;background:rgba(8,13,18,.85);padding:5px 12px;
+    border-radius:var(--r-sm);font-size:var(--fs-sm);pointer-events:none;font-weight:600;}
+  #labelLeft{left:var(--sp-2);color:#8fbcff;border:1px solid var(--wgs);}
+  #labelRight{right:var(--sp-2);color:#7fe0b8;border:1px solid var(--msk);}
+  #overlayControls{position:absolute;top:var(--sp-2);left:var(--sp-2);z-index:6;background:rgba(8,13,18,.9);
+    padding:10px 14px;border-radius:var(--r-md);font-size:var(--fs-sm);max-width:280px;border:1px solid var(--border);}
+  .hidden{display:none !important;}
+
+  /* ---- модальные диалоги (ключ API, панель "Подробно") ---- */
+  .modal-backdrop{position:fixed;inset:0;background:rgba(4,7,10,.72);z-index:50;
+    display:flex;align-items:center;justify-content:center;}
+  #gate .box{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);
+    padding:var(--sp-5);max-width:480px;font-size:var(--fs-md);line-height:var(--lh);
+    box-shadow:0 20px 60px rgba(0,0,0,.5);}
+  #gate .box h2{margin-top:0;font-size:var(--fs-lg);}
+  #gate .box .actions{display:flex;gap:var(--sp-2);margin-top:var(--sp-2);align-items:center;}
+  #gate a{color:var(--accent);}
+  #errorMsg{color:var(--danger);font-size:var(--fs-sm);margin-top:var(--sp-2);}
+  .warn{color:var(--mismatch);font-size:var(--fs-xs);line-height:var(--lh);}
+
+  /* ---- выезжающая панель "Подробно" ---- */
+  #infoBackdrop{position:fixed;inset:0;background:rgba(4,7,10,.55);z-index:60;}
+  #infoDrawer{position:fixed;top:0;right:0;bottom:0;width:min(560px,94vw);background:var(--panel);
+    border-left:1px solid var(--border);z-index:61;display:flex;flex-direction:column;
+    box-shadow:-20px 0 60px rgba(0,0,0,.5);
+    transform:translateX(100%);transition:transform .22s ease-out;}
+  #infoDrawer.open{transform:translateX(0);}
+  #infoDrawer .drawerHead{display:flex;align-items:flex-start;gap:var(--sp-3);padding:var(--sp-4) var(--sp-5);
+    border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--panel);}
+  #infoDrawer .drawerHead h2{margin:0;font-size:var(--fs-lg);}
+  #infoDrawer .drawerHead p{margin:4px 0 0;color:var(--muted);font-size:var(--fs-xs);}
+  #infoDrawer .drawerBody{flex:1;overflow-y:auto;padding:var(--sp-4) var(--sp-5) var(--sp-6);}
+  #closeDrawer{margin-left:auto;flex:none;}
+  #infoDrawer details{border:1px solid var(--border);border-radius:var(--r-md);margin-bottom:var(--sp-3);
+    background:var(--panel2);overflow:hidden;}
+  #infoDrawer summary{cursor:pointer;padding:var(--sp-3) var(--sp-4);font-weight:600;font-size:var(--fs-md);
+    list-style:none;display:flex;align-items:center;gap:var(--sp-2);}
+  #infoDrawer summary::-webkit-details-marker{display:none;}
+  #infoDrawer summary::before{content:'▸';color:var(--accent);flex:none;transition:transform .15s;}
+  #infoDrawer details[open] summary::before{transform:rotate(90deg);}
+  #infoDrawer summary:hover{background:rgba(77,163,255,.08);}
+  #infoDrawer .drawerContent{padding:0 var(--sp-4) var(--sp-4);color:var(--text);font-size:var(--fs-sm);line-height:var(--lh);}
+  #infoDrawer .drawerContent p{margin:0 0 var(--sp-3);}
+  #infoDrawer .drawerContent ul{margin:0 0 var(--sp-3);padding-left:20px;}
+  #infoDrawer .drawerContent li{margin-bottom:6px;}
+  #infoDrawer .drawerContent b{color:#fff;}
+  #infoDrawer .mini-legend{display:flex;align-items:center;gap:8px;margin:6px 0;}
+  #infoDrawer .mini-swatch{width:14px;height:14px;border-radius:3px;flex:none;}
+  #infoDrawer table{width:100%;border-collapse:collapse;margin:var(--sp-2) 0 var(--sp-3);font-size:var(--fs-xs);}
+  #infoDrawer th,#infoDrawer td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--border);}
+  #infoDrawer th{color:var(--muted);font-weight:600;}
+  #infoDrawer .callout{background:rgba(77,163,255,.1);border:1px solid rgba(77,163,255,.35);
+    border-radius:var(--r-sm);padding:var(--sp-3);font-size:var(--fs-sm);margin:var(--sp-2) 0;}
+  #infoDrawer .callout.warn2{background:rgba(255,138,61,.1);border-color:rgba(255,138,61,.4);}
+
+  #statusBar{padding:var(--sp-2) var(--sp-4);background:var(--panel);border-top:1px solid var(--border);
+    font-size:var(--fs-xs);color:var(--muted);}
+  ::-webkit-scrollbar{width:9px;} ::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:4px;}
+
+  @media (max-width:760px){
+    #sidebar{position:absolute;left:0;top:0;bottom:0;z-index:20;transform:translateX(-100%);transition:transform .2s;}
+    #sidebar.open{transform:translateX(0);box-shadow:20px 0 40px rgba(0,0,0,.5);}
+  }
+</style>
+</head>
+<body>
+<a class="skip-link" href="#mapsWrap">Пропустить к карте</a>
+<div id="app">
+
+  <header>
+    <div>
+      <h1>Войковский район — WGS84 vs МСК-77 на Яндекс Картах</h1>
+      <div class="sub">DT_Task2_Voykovskiy · 2723 объекта · сравнение вариантов координат</div>
+    </div>
+    <div class="headerControls">
+      <div class="tabs" role="group" aria-label="Режим сравнения">
+        <button type="button" class="tab-btn" id="tabSwipe" aria-pressed="true">Шторка</button>
+        <button type="button" class="tab-btn" id="tabOverlay" aria-pressed="false">Наложение</button>
+      </div>
+      <button type="button" class="btn btn-primary" id="infoBtn" aria-haspopup="dialog" aria-controls="infoDrawer">
+        ⓘ Подробно
+      </button>
+    </div>
+  </header>
+
+  <div id="main">
+    <nav id="sidebar" aria-label="Легенда и управление слоями карты">
+
+      <section aria-labelledby="legendHeading">
+        <h2 id="legendHeading">Легенда</h2>
+        <div class="legend-row"><span class="swatch" style="background:var(--wgs)"></span> <span>WGS84 (исходный файл)</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--msk)"></span> <span>МСК-77 (основная реализация) → обратно в WGS84</span></div>
+        <div class="legend-row"><span class="swatch" style="background:var(--mismatch)"></span> <span>Диагностика: смешение реализаций МСК-77 (~21.7 м)</span></div>
+        <p class="legend-note">Первые два слоя совпадают с точностью &lt;3 мм (см. отчёт) — на карте они визуально неотличимы при любом масштабе. Это ожидаемый результат, а не ошибка отображения.</p>
+        <button type="button" class="teaser-more" data-open-section="sec-legend">Что это значит и почему — подробнее →</button>
+      </section>
+
+      <section aria-labelledby="layersHeading">
+        <h2 id="layersHeading">Слои (режим «Наложение»)</h2>
+        <div class="layer-toggle"><input type="checkbox" id="chkWgs" checked><label for="chkWgs">WGS84 исходный</label></div>
+        <div class="opacity-row">
+          <span class="sr-only-label" aria-hidden="true">Прозрачность</span>
+          <input type="range" id="opWgs" min="0" max="100" value="70" aria-label="Прозрачность слоя WGS84 исходный, процент">
+          <span class="opval" id="opWgsVal">70%</span>
+        </div>
+        <div class="layer-toggle"><input type="checkbox" id="chkMsk" checked><label for="chkMsk">МСК-77→WGS84 (основная)</label></div>
+        <div class="opacity-row">
+          <span class="sr-only-label" aria-hidden="true">Прозрачность</span>
+          <input type="range" id="opMsk" min="0" max="100" value="70" aria-label="Прозрачность слоя МСК-77 в WGS84, процент">
+          <span class="opval" id="opMskVal">70%</span>
+        </div>
+        <div class="layer-toggle"><input type="checkbox" id="chkMismatch"><label for="chkMismatch">Диагностика несогласованности (~21.7 м)</label></div>
+        <div class="opacity-row">
+          <span class="sr-only-label" aria-hidden="true">Прозрачность</span>
+          <input type="range" id="opMismatch" min="0" max="100" value="70" aria-label="Прозрачность диагностического слоя, процент">
+          <span class="opval" id="opMismatchVal">70%</span>
+        </div>
+        <div class="layer-toggle"><input type="checkbox" id="chkTilt"><label for="chkTilt">3D-наклон (только наглядность)</label></div>
+        <button type="button" class="teaser-more" data-open-section="sec-modes">Как пользоваться режимами — подробнее →</button>
+      </section>
+
+      <section aria-labelledby="sitesHeading">
+        <h2 id="sitesHeading">Контрольные участки (13)</h2>
+        <div id="sitesList"></div>
+        <button type="button" class="teaser-more" data-open-section="sec-sites">Почему выбраны именно эти точки →</button>
+      </section>
+
+      <section aria-labelledby="crsHeading">
+        <h2 id="crsHeading">О системах координат</h2>
+        <p style="color:var(--muted);font-size:var(--fs-xs);">
+          Кратко: файл уже в WGS84/CRS84 — переводить в МСК-77 для показа на Яндекс Картах не нужно.
+          Полная методика, история проверки и источники — в панели «Подробно».
+        </p>
+        <button type="button" class="btn btn-ghost" data-open-section="sec-history" style="width:100%;justify-content:center;margin-top:6px;">Открыть подробное объяснение</button>
+      </section>
+
+    </nav>
+
+    <main id="mapsWrap" aria-label="Карта сравнения WGS84 и МСК-77">
+      <div id="mapLeft" class="mapPane" aria-label="Карта: слой WGS84 (исходный)" role="img"></div>
+      <div id="mapRight" class="mapPane" aria-label="Карта: слой МСК-77, приведённый обратно в WGS84" role="img"></div>
+      <div id="divider" role="slider" tabindex="0" aria-orientation="vertical"
+           aria-label="Разделитель шторки — двигайте, чтобы сравнить левый (WGS84) и правый (МСК-77→WGS84) слои"
+           aria-valuemin="2" aria-valuemax="98" aria-valuenow="50"></div>
+      <div id="labelLeft" class="paneLabel">WGS84 (исходный)</div>
+      <div id="labelRight" class="paneLabel">МСК-77 → WGS84 (обратное преобразование)</div>
+      <div id="overlayControls" class="hidden">
+        Режим наложения: используйте переключатели слоёв и слайдеры прозрачности в панели слева.
+      </div>
+    </main>
+  </div>
+
+  <div id="statusBar" role="status" aria-live="polite">Загрузка данных…</div>
+</div>
+
+<!-- ============ Модалка: ключ API ============ -->
+<div id="gate" class="modal-backdrop">
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="gateTitle">
+    <h2 id="gateTitle">API-ключ Яндекс Карт (JS API 3.0)</h2>
+    <p>Для отображения карты нужен бесплатный ключ JS API. Получите его в
+      <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Кабинете разработчика Яндекса</a>
+      (раздел «JavaScript API и HTTP Геокодер»). При создании ключа заполните поле
+      «Ограничение по HTTP Referer» — впишите <code>localhost</code>, если открываете файл через локальный сервер
+      (подробности — README.md, раздел «Как открыть карту»).</p>
+    <div class="field">
+      <label for="apiKeyInput">API-ключ</label>
+      <input type="text" id="apiKeyInput" placeholder="Вставьте API-ключ сюда" autocomplete="off"
+        aria-describedby="keyHelp errorMsg">
+    </div>
+    <div class="actions">
+      <button type="button" class="btn btn-primary" id="apiKeyGo">Открыть карту</button>
+    </div>
+    <p id="keyHelp" class="warn">Ключ сохраняется только в localStorage вашего браузера и никуда не отправляется, кроме api-maps.yandex.ru.</p>
+    <p id="errorMsg" role="alert"></p>
+  </div>
+</div>
+
+<!-- ============ Выезжающая панель "Подробно" ============ -->
+<div id="infoBackdrop" class="hidden"></div>
+<aside id="infoDrawer" aria-labelledby="infoDrawerTitle" role="dialog" aria-modal="true">
+  <div class="drawerHead">
+    <div>
+      <h2 id="infoDrawerTitle">Подробно о карте</h2>
+      <p>Полное объяснение каждого элемента: что вы видите, как это работает и почему сделано именно так</p>
+    </div>
+    <button type="button" class="btn" id="closeDrawer" aria-label="Закрыть панель «Подробно»">✕</button>
+  </div>
+  <div class="drawerBody">
+
+    <details id="sec-history">
+      <summary>1. История исследования — зачем вообще сравнивались системы координат</summary>
+      <div class="drawerContent">
+        <p>Исходная задача звучала так: файл <b>DT_Task2_Voykovskiy.geojson</b> (2723 объекта Войковского района) заявлен в системе <b>CRS84</b> (WGS84 с порядком осей «долгота, широта»). Нужно было понять — действительно ли он корректен в этой системе, или для точного показа на Яндекс Картах его сначала нужно перевести в местную систему <b>МСК-77</b> и лишь затем обратно в WGS84 для отображения. Предположение «это Москва → наверняка МСК-77» специально не принималось на веру — требовалось доказательство измерениями.</p>
+        <p>Проверка шла в несколько этапов: (1) валидация исходного файла — диапазоны координат, самопересечения геометрии; (2) изучение официальной документации Яндекс Карт — в каком порядке и в какой системе она принимает координаты; (3) построение обоих вариантов данных с полностью задокументированными параметрами перехода; (4) численные тесты преобразования на выборке объектов; (5) сверка с живой картой Яндекса через браузер.</p>
+        <div class="callout">
+          <b>Итог:</b> исходный файл — подлинный WGS84/CRS84. Это подтверждено независимо — через геодезический пересчёт площади каждого объекта по координатам, который совпал с паспортной площадью с медианным отклонением 0.001%. Переводить в МСК-77 для показа на Яндекс Картах <b>не нужно</b>.
+        </div>
+        <p>Полная версия — в файлах <code>DT_Task2_Voykovskiy_report.pdf</code> и <code>README.md</code>, которые идут вместе с этой картой.</p>
+      </div>
+    </details>
+
+    <details id="sec-modes">
+      <summary>2. Как читать карту — режимы «Шторка» и «Наложение»</summary>
+      <div class="drawerContent">
+        <p><b>Шторка</b> (режим по умолчанию) — два экземпляра карты показаны рядом, разделены подвижной границей. Слева — слой WGS84 (исходные координаты), справа — слой МСК-77, пересчитанный обратно в WGS84. Оба всегда показывают одну и ту же точку и масштаб — карты синхронизированы: подвиньте/увеличьте одну, вторая повторит движение.</p>
+        <p>Границу можно двигать мышью или пальцем на сенсорном экране. С клавиатуры: наведите фокус на границу (клавиша Tab) и используйте стрелки ← / → — так делали, чтобы управление было доступно и без мыши.</p>
+        <p><b>Наложение</b> — обе версии рисуются друг поверх друга на одной карте. В сайдбаре слева включайте/выключайте слои галочками и меняйте их прозрачность ползунками — так удобнее ловить мелкие расхождения: например, сделайте один слой полупрозрачным и посмотрите, проступают ли контуры другого слоя из-под него.</p>
+        <p>Поскольку WGS84 и МСК-77→WGS84 отличаются на доли миллиметра, в обоих режимах они выглядят как один слой — так и должно быть.</p>
+      </div>
+    </details>
+
+    <details id="sec-legend">
+      <summary>3. Слои и цвета — что означает каждый</summary>
+      <div class="drawerContent">
+        <div class="mini-legend"><span class="mini-swatch" style="background:var(--wgs)"></span><b>Синий — WGS84 (исходный)</b></div>
+        <p>Координаты ровно такие, как в файле <code>DT_Task2_Voykovskiy.geojson</code>, без какого-либо преобразования. Это рекомендованный вариант для Яндекс Карт.</p>
+
+        <div class="mini-legend"><span class="mini-swatch" style="background:var(--msk)"></span><b>Зелёный — МСК-77 → WGS84 (обратное преобразование)</b></div>
+        <p>Тот же объект: сначала пересчитан в метровую систему МСК-77 (эллипсоид Бесселя, проекция Гаусса-Крюгера, официальные параметры 7-параметрического преобразования Хельмерта), затем пересчитан обратно в WGS84. Если бы в преобразовании была ошибка (перепутанные оси, не та зона, неверный знак параметров), этот слой отъехал бы от синего на метры — сдвига не произошло.</p>
+
+        <div class="mini-legend"><span class="mini-swatch" style="background:var(--mismatch)"></span><b>Оранжевый — диагностика несогласованности реализаций</b></div>
+        <p>Это единственный слой, который <b>намеренно построен с ошибкой</b> — в учебных целях. В открытых источниках нашлось два слегка разных набора параметров МСК-77 (отличаются началом координат на 21.67 м). Этот слой получен, если пересчитать объект в одну реализацию, а обратно — по параметрам другой. Он показывает, как выглядела бы настоящая ошибка привязки на карте — чтобы было с чем сравнивать «идеальное» совпадение синего и зелёного слоёв. Он не описывает реальное состояние исходных данных.</p>
+      </div>
+    </details>
+
+    <details id="sec-sites">
+      <summary>4. Контрольные участки (13) — зачем именно эти точки</summary>
+      <div class="drawerContent">
+        <p>Чтобы проверка не ограничивалась «на глаз в центре района», отобраны 13 показательных объектов:</p>
+        <ul>
+          <li><b>Центр района</b> — типичная точка, ближе всего к среднему по всем координатам.</li>
+          <li><b>Крайние точки</b> — север, юг, восток, запад: проверяют, не «плывёт» ли преобразование по краям района.</li>
+          <li><b>Диагональные направления</b> — СВ, СЗ, ЮВ, ЮЗ: дополнительное покрытие площади района.</li>
+          <li><b>Минимальный, медианный и максимальный по площади объект</b> — проверка на разных масштабах, от маленького сарая до крупного строения.</li>
+          <li><b>Объект с самопересечением геометрии</b> — реальный пример дефекта исходных данных (таких 143 из 2723, все — некритичные «шпоры», не искажающие форму).</li>
+        </ul>
+        <p>Клик по любой карточке в сайдбаре переносит обе карты (в режиме «Шторка») к этой точке с увеличением. Оранжевая цифра на карточке — это то самое смещение 21.67 м из диагностического слоя (см. пункт 3) — оно одинаковое для всех точек, так как это постоянный сдвиг начала координат, а не случайная ошибка.</p>
+      </div>
+    </details>
+
+    <details id="sec-verify">
+      <summary>5. Что уже проверено вживую на Яндекс Картах</summary>
+      <div class="drawerContent">
+        <p>Часть контрольных точек была сверена напрямую через браузер на yandex.ru/maps:</p>
+        <ul>
+          <li><b>Центр района</b> — поиск по координатам вернул тот же адрес и те же координаты (совпадение до 6-го знака): «4-й Новоподмосковный переулок, 3с2».</li>
+          <li><b>Самый крупный объект</b> (598.6 м²) — попал на реальную мощёную площадку/парковку; линейкой Яндекс Карт подтверждён масштаб (замер ≈24.9 м совпал с ожидаемой стороной полигона).</li>
+          <li><b>Крайняя северная точка</b> — поиск вернул «Головинское шоссе» — именно ту улицу, по которой проходит официальная граница района.</li>
+          <li><b>Крайняя южная точка</b> — на спутниковом снимке рядом видна железная дорога, совпадающая с описанием южной границы района из независимого источника (mosopen.ru).</li>
+        </ul>
+        <p>Это проверка правдоподобия (все точки — в реальных, осмысленных местах), а не измерение расхождения в сантиметрах по каждому углу здания — для точного покадрового сравнения нужен API-ключ и именно этот инструмент, запущенный с реальными тайлами (что вы сейчас и делаете).</p>
+      </div>
+    </details>
+
+    <details id="sec-limits">
+      <summary>6. Что не проверено / ограничения</summary>
+      <div class="drawerContent">
+        <ul>
+          <li>Точное значение «ложных смещений» официальной МСК-77 (0 м или 16.1/14.5 м) подтверждено из вторичных источников, не из первоисточника напрямую — расхождение между ними и даёт те самые 21.67 м из диагностического слоя.</li>
+          <li>Официальные ортофотопланы Москвы (Росреестр/ИАИС ОГД) не использовались — сверка шла по спутниковым снимкам потребительской карты Яндекса.</li>
+          <li>Пиксельно-точный оверлей контур-в-контур выполнен для всех 2723 объектов в этом инструменте, но количественная сверка «на сколько сантиметров смещён именно этот угол здания» вручную не проводилась для каждого объекта.</li>
+        </ul>
+        <p>Полный список — в отчёте, раздел «Что требует уточнения».</p>
+      </div>
+    </details>
+
+    <details id="sec-privacy">
+      <summary>7. Про ключ API и приватность</summary>
+      <div class="drawerContent">
+        <p>Ключ, который вы ввели при открытии карты, хранится только в localStorage вашего браузера и отправляется исключительно на <code>api-maps.yandex.ru</code> — никуда больше. Если эта страница размещена по публичной ссылке (например, на GitHub Pages), помните: геометрия всех 2723 объектов района становится доступна любому, у кого есть ссылка на страницу.</p>
+      </div>
+    </details>
+
+    <details id="sec-sources">
+      <summary>8. Где искать больше — файлы исследования</summary>
+      <div class="drawerContent">
+        <table>
+          <tr><th>Файл</th><th>Что внутри</th></tr>
+          <tr><td>DT_Task2_Voykovskiy_report.pdf / .docx</td><td>Полный отчёт на русском языке — методология, все параметры, таблицы</td></tr>
+          <tr><td>README.md</td><td>Воспроизводимая методика, EPSG-параметры, источники</td></tr>
+          <tr><td>DT_Task2_Voykovskiy_control_points_metrics.xlsx</td><td>Контрольные точки и метрики невязки с формулами</td></tr>
+        </table>
+        <p>Источники методологии: документация Яндекс Карт JS API 3.0 (yandex.ru/maps-api), GIS-Lab (параметры МСК-77), terraingis.ru, mosopen.ru (описание границ района).</p>
+      </div>
+    </details>
+
+  </div>
+</aside>
+
+<script>
+(function(){
+  "use strict";
+
+  var STATUS = document.getElementById('statusBar');
+  function setStatus(t){ STATUS.textContent = t; }
+
+  /* ---------- generic modal helpers (focus trap + restore) ---------- */
+  var lastFocused = null;
+  function trapFocus(container, evt){
+    var focusables = container.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select,textarea,[tabindex]:not([tabindex="-1"])');
+    if (!focusables.length) return;
+    var first = focusables[0], last = focusables[focusables.length-1];
+    if (evt.key !== 'Tab') return;
+    if (evt.shiftKey && document.activeElement === first){ evt.preventDefault(); last.focus(); }
+    else if (!evt.shiftKey && document.activeElement === last){ evt.preventDefault(); first.focus(); }
+  }
+  function setAppInert(on){
+    var app = document.getElementById('app');
+    if (on){ app.setAttribute('aria-hidden','true'); try{ app.inert = true; }catch(e){} }
+    else { app.removeAttribute('aria-hidden'); try{ app.inert = false; }catch(e){} }
+  }
+
+  /* ---------- API key gate ---------- */
+  var LS_KEY = 'dt_task2_voykovskiy_yandex_apikey';
+  var gate = document.getElementById('gate');
+  var errorMsg = document.getElementById('errorMsg');
+  var savedKey = null;
+  try { savedKey = localStorage.getItem(LS_KEY); } catch(e){}
+
+  function openGate(){
+    lastFocused = document.activeElement;
+    gate.classList.remove('hidden');
+    setAppInert(true);
+    document.getElementById('apiKeyInput').focus();
+    document.addEventListener('keydown', gateKeydown);
+  }
+  function closeGate(){
+    gate.classList.add('hidden');
+    setAppInert(false);
+    document.removeEventListener('keydown', gateKeydown);
+    if (lastFocused) lastFocused.focus();
+  }
+  function gateKeydown(e){ trapFocus(gate, e); }
+
+  function loadYmaps(key){
+    return new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = 'https://api-maps.yandex.ru/v3/?apikey=' + encodeURIComponent(key) + '&lang=ru_RU';
+      s.onload = function(){ resolve(); };
+      s.onerror = function(){ reject(new Error('Не удалось загрузить API Яндекс Карт. Проверьте ключ и подключение к интернету.')); };
+      document.head.appendChild(s);
+    });
+  }
+
+  function startWithKey(key){
+    try { localStorage.setItem(LS_KEY, key); } catch(e){}
+    errorMsg.textContent = '';
+    closeGate();
+    setStatus('Загрузка Яндекс Карт API…');
+    loadYmaps(key).then(function(){
+      return window.ymaps3.ready;
+    }).then(init).catch(function(err){
+      setStatus('Ошибка: ' + err.message);
+      openGate();
+      errorMsg.textContent = err.message;
+    });
+  }
+
+  document.getElementById('apiKeyGo').addEventListener('click', function(){
+    var v = document.getElementById('apiKeyInput').value.trim();
+    if (v) startWithKey(v);
+  });
+  document.getElementById('apiKeyInput').addEventListener('keydown', function(e){
+    if (e.key === 'Enter') document.getElementById('apiKeyGo').click();
+  });
+
+startWithKey(savedKey || '6b197a0e-9109-4624-9520-954a47c26dda');
+  /* ---------- Info drawer ---------- */
+  var drawer = document.getElementById('infoDrawer');
+  var backdrop = document.getElementById('infoBackdrop');
+  var infoBtn = document.getElementById('infoBtn');
+
+  function openDrawer(targetSectionId){
+    lastFocused = document.activeElement;
+    backdrop.classList.remove('hidden');
+    drawer.classList.add('open');
+    setAppInert(true);
+    if (targetSectionId){
+      var sec = document.getElementById(targetSectionId);
+      if (sec){ sec.open = true; sec.scrollIntoView({block:'start', behavior:'smooth'}); }
+    }
+    document.getElementById('closeDrawer').focus();
+    document.addEventListener('keydown', drawerKeydown);
+  }
+  function closeDrawer(){
+    drawer.classList.remove('open');
+    backdrop.classList.add('hidden');
+    setAppInert(false);
+    document.removeEventListener('keydown', drawerKeydown);
+    if (lastFocused) lastFocused.focus();
+  }
+  function drawerKeydown(e){
+    if (e.key === 'Escape'){ closeDrawer(); return; }
+    trapFocus(drawer, e);
+  }
+  infoBtn.addEventListener('click', function(){ openDrawer(); });
+  document.getElementById('closeDrawer').addEventListener('click', closeDrawer);
+  backdrop.addEventListener('click', closeDrawer);
+  document.querySelectorAll('[data-open-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){ openDrawer(btn.dataset.openSection); });
+  });
+
+  /* ---------- Control sites (embedded, from control_sites_for_map.json) ---------- */
+  var SITES = [
+  {
+    "id": "center",
+    "label_ru": "Центр района",
+    "fid": 2204001069.0,
+    "lon": 37.502481,
+    "lat": 55.822608,
+    "area_m2": 158.3,
+    "type": "planar_structure",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "north",
+    "label_ru": "Крайняя северная точка",
+    "fid": 2204001453.0,
+    "lon": 37.491919,
+    "lat": 55.839216,
+    "area_m2": 120.0,
+    "type": "planar_structure",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "south",
+    "label_ru": "Крайняя южная точка",
+    "fid": 2204000593.0,
+    "lon": 37.498049,
+    "lat": 55.815489,
+    "area_m2": 36.9,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "east",
+    "label_ru": "Крайняя восточная точка",
+    "fid": 2204002596.0,
+    "lon": 37.52078,
+    "lat": 55.817437,
+    "area_m2": 57.1,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "west",
+    "label_ru": "Крайняя западная точка",
+    "fid": 2204001692.0,
+    "lon": 37.478332,
+    "lat": 55.83855,
+    "area_m2": 211.0,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "smallest",
+    "label_ru": "Минимальный объект",
+    "fid": 2204002203.0,
+    "lon": 37.492973,
+    "lat": 55.823438,
+    "area_m2": 0.0,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "largest",
+    "label_ru": "Максимальный объект",
+    "fid": 2204002039.0,
+    "lon": 37.499345,
+    "lat": 55.832415,
+    "area_m2": 598.6,
+    "type": "planar_structure",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "median_size",
+    "label_ru": "Медианный объект",
+    "fid": 2204002143.0,
+    "lon": 37.491842,
+    "lat": 55.827892,
+    "area_m2": 75.2,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "northeast",
+    "label_ru": "Северо-восток",
+    "fid": 2204000202.0,
+    "lon": 37.516102,
+    "lat": 55.824414,
+    "area_m2": 66.9,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "northwest",
+    "label_ru": "Северо-запад",
+    "fid": 2204001284.0,
+    "lon": 37.478349,
+    "lat": 55.838897,
+    "area_m2": 26.1,
+    "type": "planar_structure",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "southeast",
+    "label_ru": "Юго-восток",
+    "fid": 2204001900.0,
+    "lon": 37.520624,
+    "lat": 55.817319,
+    "area_m2": 446.6,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "southwest",
+    "label_ru": "Юго-запад",
+    "fid": 2204001434.0,
+    "lon": 37.487728,
+    "lat": 55.81621,
+    "area_m2": 285.2,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  },
+  {
+    "id": "invalid_example",
+    "label_ru": "Объект с самопересечением (пример)",
+    "fid": 2204000006.0,
+    "lon": 37.488909,
+    "lat": 55.838728,
+    "area_m2": 18.3,
+    "type": "dts",
+    "mismatch_offset_m": 21.67
+  }
+];
+
+  /* ---------- Main application ---------- */
+  function init(){
+    var ymaps3 = window.ymaps3;
+    var YMap = ymaps3.YMap, YMapDefaultSchemeLayer = ymaps3.YMapDefaultSchemeLayer,
+        YMapDefaultFeaturesLayer = ymaps3.YMapDefaultFeaturesLayer,
+        YMapFeature = ymaps3.YMapFeature, YMapListener = ymaps3.YMapListener;
+
+    var CENTER = [37.5016, 55.8242]; // [lng, lat], район в целом
+    var START_ZOOM = 15;
+
+    var mapLeft = new YMap(document.getElementById('mapLeft'), {
+      location: {center: CENTER, zoom: START_ZOOM},
+      behaviors: ['drag','scrollZoom','pinchZoom','dblClick']
+    }, [new YMapDefaultSchemeLayer({}), new YMapDefaultFeaturesLayer({})]);
+
+    var mapRight = new YMap(document.getElementById('mapRight'), {
+      location: {center: CENTER, zoom: START_ZOOM},
+      behaviors: ['drag','scrollZoom','pinchZoom','dblClick']
+    }, [new YMapDefaultSchemeLayer({}), new YMapDefaultFeaturesLayer({})]);
+
+    // Sync cameras between the two swipe maps
+    var syncing = false;
+    mapLeft.addChild(new YMapListener({
+      onUpdate: function(ev){
+        if (syncing) return;
+        syncing = true;
+        try { mapRight.update({location: ev.location}); } catch(e){}
+        syncing = false;
+      }
+    }));
+    mapRight.addChild(new YMapListener({
+      onUpdate: function(ev){
+        if (syncing) return;
+        syncing = true;
+        try { mapLeft.update({location: ev.location}); } catch(e){}
+        syncing = false;
+      }
+    }));
+
+    setStatus('Загрузка геометрии (3 набора данных)…');
+
+    function loadGeojson(url){
+      return fetch(url).then(function(r){
+        if (!r.ok) throw new Error('Не удалось загрузить ' + url + ' (HTTP ' + r.status + '). Откройте страницу через локальный HTTP-сервер (см. README.md).');
+        return r.json();
+      });
+    }
+
+    Promise.all([
+      loadGeojson('DT_Task2_Voykovskiy_WGS84.geojson'),
+      loadGeojson('DT_Task2_Voykovskiy_MSK77_to_WGS84_for_Yandex.geojson'),
+      loadGeojson('DT_Task2_Voykovskiy_MSK77_mismatch_demo.geojson')
+    ]).then(function(results){
+      var fcWgs = results[0], fcMsk = results[1], fcMismatch = results[2];
+      setStatus('Отрисовка ' + fcWgs.features.length + ' объектов × 3 слоя…');
+
+      function toPolygonFeatures(fc, color, idPrefix){
+        var out = [];
+        for (var i=0;i<fc.features.length;i++){
+          var f = fc.features[i];
+          // все объекты в этом датасете - MultiPolygon с ровно одной частью (проверено на этапе валидации)
+          var coords = f.geometry.coordinates[0];
+          out.push(new YMapFeature({
+            id: idPrefix + '_' + i,
+            geometry: {type:'Polygon', coordinates: coords},
+            style: {
+              stroke: [{width: 1.4, color: color, opacity: 0.95}],
+              fill: color,
+              simplificationRate: 0
+            }
+          }));
+        }
+        return out;
+      }
+
+      var wgsFeatures = toPolygonFeatures(fcWgs, '#2f7dffaa', 'wgs');
+      var mskFeatures = toPolygonFeatures(fcMsk, '#26c281aa', 'msk');
+
+      // Swipe mode: left map shows WGS84, right map shows MSK77->WGS84 (recommended pair)
+      wgsFeatures.forEach(function(ft){ mapLeft.addChild(ft); });
+      mskFeatures.forEach(function(ft){ mapRight.addChild(ft); });
+
+      // Overlay mode uses a SECOND set of feature instances placed on mapLeft only,
+      // toggled by checkboxes; mapRight/divider are hidden in overlay mode.
+      var overlayWgs = toPolygonFeatures(fcWgs, '#2f7dffb3', 'ovl_wgs');
+      var overlayMsk = toPolygonFeatures(fcMsk, '#26c281b3', 'ovl_msk');
+      var overlayMismatch = toPolygonFeatures(fcMismatch, '#ff8a3dcc', 'ovl_mismatch');
+      var overlayAdded = {wgs:false, msk:false, mismatch:false};
+
+      function setOpacity(features, pct){
+        var a = Math.round(pct/100*255).toString(16).padStart(2,'0');
+        features.forEach(function(ft){
+          var baseColor = ft.__baseColor || (ft.__baseColor = ft._props.style.fill.slice(0,7));
+          ft.update({style:{stroke:[{width:1.4, color: baseColor+a, opacity: pct/100}], fill: baseColor+a, simplificationRate:0}});
+        });
+      }
+
+      function syncOverlayLayer(chkId, opId, valId, features, key){
+        var chk = document.getElementById(chkId), op = document.getElementById(opId), val = document.getElementById(valId);
+        function apply(){
+          val.textContent = op.value + '%';
+          if (chk.checked){
+            if (!overlayAdded[key]){ features.forEach(function(ft){ mapLeft.addChild(ft); }); overlayAdded[key]=true; }
+            setOpacity(features, parseInt(op.value,10));
+          } else if (overlayAdded[key]){
+            features.forEach(function(ft){ try{ mapLeft.removeChild(ft); }catch(e){} });
+            overlayAdded[key]=false;
+          }
+        }
+        chk.addEventListener('change', apply);
+        op.addEventListener('input', apply);
+        return apply;
+      }
+      var applyWgsOverlay = syncOverlayLayer('chkWgs','opWgs','opWgsVal', overlayWgs, 'wgs');
+      var applyMskOverlay = syncOverlayLayer('chkMsk','opMsk','opMskVal', overlayMsk, 'msk');
+      var applyMismatchOverlay = syncOverlayLayer('chkMismatch','opMismatch','opMismatchVal', overlayMismatch, 'mismatch');
+
+      setStatus('Готово. ' + fcWgs.features.length + ' объектов загружено. Слои: WGS84 (синий), МСК-77→WGS84 (зелёный), диагностика несогласованности реализаций (оранжевый, ~21.7 м смещения).');
+
+      // ---- Mode switching ----
+      var mode = 'swipe';
+      var tabSwipe = document.getElementById('tabSwipe'), tabOverlay = document.getElementById('tabOverlay');
+      function applyMode(){
+        var mapRightEl = document.getElementById('mapRight');
+        var divider = document.getElementById('divider');
+        var labelLeft = document.getElementById('labelLeft');
+        var labelRight = document.getElementById('labelRight');
+        var overlayCtl = document.getElementById('overlayControls');
+        if (mode === 'swipe'){
+          mapRightEl.style.clipPath = 'inset(0 0 0 ' + dividerPct + '%)';
+          mapRightEl.classList.remove('hidden');
+          divider.classList.remove('hidden');
+          labelLeft.classList.remove('hidden');
+          labelRight.classList.remove('hidden');
+          overlayCtl.classList.add('hidden');
+          tabSwipe.setAttribute('aria-pressed','true');
+          tabOverlay.setAttribute('aria-pressed','false');
+          // hide overlay-mode feature sets so they don't double-render under the swipe view
+          if (overlayAdded.wgs){ overlayWgs.forEach(function(ft){ try{mapLeft.removeChild(ft);}catch(e){} }); overlayAdded.wgs=false; }
+          if (overlayAdded.msk){ overlayMsk.forEach(function(ft){ try{mapLeft.removeChild(ft);}catch(e){} }); overlayAdded.msk=false; }
+          if (overlayAdded.mismatch){ overlayMismatch.forEach(function(ft){ try{mapLeft.removeChild(ft);}catch(e){} }); overlayAdded.mismatch=false; }
+        } else {
+          mapRightEl.classList.add('hidden');
+          divider.classList.add('hidden');
+          labelLeft.classList.add('hidden');
+          labelRight.classList.add('hidden');
+          overlayCtl.classList.remove('hidden');
+          tabSwipe.setAttribute('aria-pressed','false');
+          tabOverlay.setAttribute('aria-pressed','true');
+          applyWgsOverlay(); applyMskOverlay(); applyMismatchOverlay();
+        }
+      }
+      tabSwipe.addEventListener('click', function(){ mode='swipe'; applyMode(); });
+      tabOverlay.addEventListener('click', function(){ mode='overlay'; applyMode(); });
+      applyMode();
+
+      // ---- Divider drag (mouse / touch / keyboard) ----
+      var dividerPct = 50;
+      var dividerEl = document.getElementById('divider');
+      var wrapEl = document.getElementById('mapsWrap');
+      function setDivider(pct){
+        dividerPct = Math.max(2, Math.min(98, pct));
+        dividerEl.style.left = dividerPct + '%';
+        dividerEl.setAttribute('aria-valuenow', Math.round(dividerPct));
+        document.getElementById('mapRight').style.clipPath = 'inset(0 0 0 ' + dividerPct + '%)';
+      }
+      setDivider(50);
+      var dragging = false;
+      dividerEl.addEventListener('mousedown', function(){ dragging = true; });
+      window.addEventListener('mouseup', function(){ dragging = false; });
+      window.addEventListener('mousemove', function(e){
+        if (!dragging) return;
+        var rect = wrapEl.getBoundingClientRect();
+        setDivider((e.clientX - rect.left) / rect.width * 100);
+      });
+      dividerEl.addEventListener('touchstart', function(){ dragging = true; });
+      window.addEventListener('touchend', function(){ dragging = false; });
+      window.addEventListener('touchmove', function(e){
+        if (!dragging || !e.touches[0]) return;
+        var rect = wrapEl.getBoundingClientRect();
+        setDivider((e.touches[0].clientX - rect.left) / rect.width * 100);
+      });
+      dividerEl.addEventListener('keydown', function(e){
+        var step = e.shiftKey ? 10 : 3;
+        if (e.key === 'ArrowLeft'){ setDivider(dividerPct - step); e.preventDefault(); }
+        else if (e.key === 'ArrowRight'){ setDivider(dividerPct + step); e.preventDefault(); }
+        else if (e.key === 'Home'){ setDivider(2); e.preventDefault(); }
+        else if (e.key === 'End'){ setDivider(98); e.preventDefault(); }
+      });
+
+      // ---- 3D tilt toggle (visual aid only) ----
+      document.getElementById('chkTilt').addEventListener('change', function(e){
+        var tilt = e.target.checked ? 45 : 0;
+        try { mapLeft.update({location: Object.assign({}, mapLeft.location, {tilt: tilt})}); } catch(err){}
+        try { mapRight.update({location: Object.assign({}, mapRight.location, {tilt: tilt})}); } catch(err){}
+      });
+
+      // ---- Control sites sidebar ----
+      var sitesList = document.getElementById('sitesList');
+      SITES.forEach(function(site){
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'site-btn';
+        btn.innerHTML = '<b>' + site.label_ru + '</b>' +
+          '<span class="badge">Δ ' + site.mismatch_offset_m + ' м</span>' +
+          '<span class="meta">fid ' + site.fid + ' · ' + site.type + ' · ' + site.area_m2 + ' м²</span>';
+        btn.addEventListener('click', function(){
+          var loc = {center: [site.lon, site.lat], zoom: 19};
+          try { mapLeft.update({location: loc}); } catch(e){}
+          try { mapRight.update({location: loc}); } catch(e){}
+        });
+        sitesList.appendChild(btn);
+      });
+
+    }).catch(function(err){
+      setStatus('Ошибка загрузки данных: ' + err.message);
+    });
+  }
+
+})();
+</script>
+</body>
+</html>
